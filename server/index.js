@@ -40,11 +40,9 @@ function broadcastState() {
     winner: game.winner,
     finishOrder: game.finishOrder,
     trickNumber: game.trickNumber,
-    debugLog: game.debugLog
+    debugLog: game.debugLog.slice(-5) // Only send last 5 log entries instead of all
   };
   
-  console.log(`[SERVER] Broadcasting game state - trickNumber: ${game.trickNumber}`);
-  console.log(`[SERVER] Full gameState object:`, JSON.stringify(gameState, null, 2));
   io.emit('gameState', gameState);
 }
 
@@ -434,21 +432,18 @@ function handleBotTurns() {
 
   // Skip if no current player, not a bot, round over, OR finished
   if (!currentPlayer || !currentPlayer.isBot || currentPlayer.finished || game.phase === "RoundOver") {
-    game.debugLog.push(`Step ${game.stepCounter++}: handleBotTurns skipped - currentPlayer: ${currentPlayer?.name}, isBot: ${currentPlayer?.isBot}, finished: ${currentPlayer?.finished}, phase: ${game.phase}`);
     return;
   }
 
   setTimeout(() => {
     // Double check after delay
     if (currentPlayer.finished) {
-      game.debugLog.push(`Step ${game.stepCounter++}: ${currentPlayer.name} is finished and skipped.`);
       game.advanceTurn();
       broadcastState();
       return handleBotTurns();
     }
 
     const move = getBotMove(game, currentPlayer.hand, currentPlayer.id, game.botDifficulty || 'medium');
-    game.debugLog.push(`Step ${game.stepCounter++}: Bot ${currentPlayer.name} has ${currentPlayer.hand.length} cards, move: ${move ? move.map(c => c.value + c.suit).join(', ') : 'PASS'}`);
     
     if (move) {
       game.playMove(currentPlayer.id, move);
@@ -458,7 +453,7 @@ function handleBotTurns() {
     broadcastState();
     checkGameEnd();
     handleBotTurns();
-  }, 1200);
+  }, 800); // Reduced from 1200ms to 800ms
 }
 
 

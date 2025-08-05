@@ -134,117 +134,56 @@ export default function App() {
     socket.on("gameState", (data) => {
       setGame(data);
       
-      // Extract dialogue from debug log - handle pass vs custom dialogues
+      // Only process dialogue if we have debug logs and dialogues are enabled
       if (data.debugLog && data.debugLog.length > 0 && data.phase === "Playing" && showDialogues) {
-        // Check the last 10 log entries for dialogue (increased from 5)
-        const recentLogs = data.debugLog.slice(-10);
-        console.log("Recent logs:", recentLogs); // Debug logging
+        // Only check the last 3 log entries for performance
+        const recentLogs = data.debugLog.slice(-3);
         
         for (const log of recentLogs) {
           if (log && log.includes(' says: "')) {
-            console.log("Found log with 'says:', log"); // Debug logging
-            // Updated regex to be more flexible and handle the "Step X: " prefix
             const dialogueMatch = log.match(/(?:Step \d+: )?(Hazel|Delilah|Blake) says: "([^"]+)"/);
-            console.log("Dialogue match:", dialogueMatch); // Debug logging
-            console.log("Current game state - trickNumber:", data.trickNumber, "centerPile.length:", data.centerPile?.length); // Debug logging
             
             if (dialogueMatch) {
               const player = dialogueMatch[1];
               const message = dialogueMatch[2];
               
-              // For pass messages, handle first round vs other rounds
+              // Simplified dialogue processing
               if (message.toLowerCase() === "pass") {
-                // Check if this is the first round (first trick)
-                const isFirstRound = data.trickNumber === 1;
+                const dialogueKey = `${player}:pass:${data.trickNumber}`;
                 
-                if (isFirstRound) {
-                  // In first round, only show "Pass" for pass dialogues
-                  const dialogueKey = `${player}:pass:firstround`;
-                  
-                  console.log("Processing first round pass dialogue for player:", player); // Debug logging
-                  
-                  // Check if this dialogue has already been used
-                  if (!usedDialoguesRef.current.has(dialogueKey)) {
-                    console.log("Setting first round pass dialogue"); // Debug logging
-                    setCurrentDialogue({
-                      player: player,
-                      message: "Pass",
-                      timestamp: Date.now()
-                    });
-                    
-                    // Add to used dialogues
-                    usedDialoguesRef.current.add(dialogueKey);
-                    
-                    // Show pass dialogue for 3 seconds
-                    setTimeout(() => {
-                      setCurrentDialogue(null);
-                    }, 3000);
-                    break; // Found dialogue, stop searching
-                  } else {
-                    console.log("First round pass dialogue already used:", dialogueKey); // Debug logging
-                  }
-                } else {
-                  // In other rounds, show "Pass" for pass dialogues
-                  const dialogueKey = `${player}:pass`;
-                  
-                  console.log("Processing pass dialogue for player:", player); // Debug logging
-                  
-                  // Check if this dialogue has already been used
-                  if (!usedDialoguesRef.current.has(dialogueKey)) {
-                    console.log("Setting pass dialogue"); // Debug logging
-                    setCurrentDialogue({
-                      player: player,
-                      message: "Pass",
-                      timestamp: Date.now()
-                    });
-                    
-                    // Add to used dialogues
-                    usedDialoguesRef.current.add(dialogueKey);
-                    
-                    // Show pass dialogue for 3 seconds
-                    setTimeout(() => {
-                      setCurrentDialogue(null);
-                    }, 3000);
-                    break; // Found dialogue, stop searching
-                  } else {
-                    console.log("Pass dialogue already used:", dialogueKey); // Debug logging
-                  }
-                }
-                            } else {
-                // For non-pass messages, check if it's first round - no custom dialogues in first round
-                const isFirstRound = data.trickNumber === 1;
-                
-                if (isFirstRound) {
-                  console.log("Skipping non-pass dialogue in first round for player:", player, "message:", message); // Debug logging
-                  continue; // Skip custom dialogues in first round
-                }
-                
-                // For non-pass messages in other rounds, show the custom dialogue from the array
-                const dialogueKey = `${player}:${message}`;
-                
-                console.log("Processing dialogue for player:", player, "message:", message); // Debug logging
-                
-                // Check if this dialogue has already been used
                 if (!usedDialoguesRef.current.has(dialogueKey)) {
-                  console.log("Setting new dialogue"); // Debug logging
+                  setCurrentDialogue({
+                    player: player,
+                    message: "Pass",
+                    timestamp: Date.now()
+                  });
+                  
+                  usedDialoguesRef.current.add(dialogueKey);
+                  
+                  setTimeout(() => {
+                    setCurrentDialogue(null);
+                  }, 2000); // Reduced from 3000ms to 2000ms
+                  break;
+                }
+              } else {
+                // For non-pass messages, use a simpler key
+                const dialogueKey = `${player}:${message}:${data.trickNumber}`;
+                
+                if (!usedDialoguesRef.current.has(dialogueKey)) {
                   setCurrentDialogue({
                     player: player,
                     message: message,
                     timestamp: Date.now()
                   });
                   
-                  // Add to used dialogues
                   usedDialoguesRef.current.add(dialogueKey);
                   
-                  // Show dialogue for 3 seconds
                   setTimeout(() => {
                     setCurrentDialogue(null);
-                  }, 3000);
-                  break; // Found dialogue, stop searching
-                } else {
-                  console.log("Dialogue already used:", dialogueKey); // Debug logging
+                  }, 2000);
+                  break;
                 }
-                             }
+              }
             }
           }
         }
