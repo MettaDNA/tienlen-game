@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: tienlen-game
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: cd server && npm install && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /
+    autoDeploy: true
+    plan: free
+    scaling:
+      minInstances: 1
+      maxInstances: 1 
