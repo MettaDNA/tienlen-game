@@ -3,11 +3,9 @@
 import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
 
 console.log('Starting build process...');
 
@@ -21,10 +19,18 @@ try {
   console.log('Installing client dependencies...');
   execSync('npm install --production=false', { stdio: 'inherit' });
   
-  // Run vite directly using node instead of shell commands
-  console.log('Building client using node...');
-  const vitePath = path.join(clientPath, 'node_modules', 'vite', 'bin', 'vite.js');
-  execSync(`node "${vitePath}" build`, { stdio: 'inherit' });
+  // Use node to run the vite binary directly with full path
+  console.log('Building client using direct node execution...');
+  const nodeModulesPath = path.join(clientPath, 'node_modules');
+  const viteBinPath = path.join(nodeModulesPath, '.bin', 'vite');
+  
+  // Try multiple approaches
+  try {
+    execSync(`node "${viteBinPath}" build`, { stdio: 'inherit' });
+  } catch (e) {
+    console.log('First approach failed, trying alternative...');
+    execSync(`node "${path.join(nodeModulesPath, 'vite', 'bin', 'vite.js')}" build`, { stdio: 'inherit' });
+  }
   
   console.log('Build completed successfully!');
 } catch (error) {
