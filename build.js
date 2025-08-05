@@ -19,9 +19,9 @@ try {
   console.log('Installing client dependencies...');
   execSync('npm install --production=false', { stdio: 'inherit' });
   
-  // Run the build
+  // Run the build using npx to avoid permission issues
   console.log('Building client...');
-  execSync('npm run build', { stdio: 'inherit' });
+  execSync('npx vite build', { stdio: 'inherit' });
   
   console.log('Build completed successfully!');
 } catch (error) {
