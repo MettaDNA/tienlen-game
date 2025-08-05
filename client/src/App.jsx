@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 
-const socket = io(import.meta.env.VITE_SERVER_URL || "http://localhost:3001");
+const socket = io();
 
 const playerColors = {
   P1: "text-green-400 border-green-400",
