@@ -2,6 +2,7 @@
   "name": "tienlen-game",
   "version": "1.0.0",
   "description": "Tien Len card game with AI bots",
+  "type": "module",
   "scripts": {
     "build": "node build.js",
     "start": "cd server && npm install && npm start",
