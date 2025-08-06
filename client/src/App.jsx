@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 
-const socket = io('http://localhost:3000');
+// Dynamic socket connection based on environment
+const getSocketUrl = () => {
+  // If we're in development (localhost), use the local server
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3000';
+  }
+  // For production (deployed on Render), use the current hostname
+  return window.location.origin;
+};
+
+const socket = io(getSocketUrl());
 
 const playerColors = {
   P1: "text-green-400 border-green-400",
