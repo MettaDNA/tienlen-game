@@ -66,19 +66,9 @@ const playerAvatars = {
 };
 
 function TurnDot({ active, gamePhase, playerId }) {
+  // Position the dot to the right of the name tag
   const getTurnDotPosition = () => {
-    switch (playerId) {
-      case 'P1': // Player 1 - on top of cards (between cards and buttons)
-        return 'absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full';
-      case 'P2': // Hazel - to the right of cards (between cards and centre table)
-        return 'absolute top-1/2 right-0 -translate-y-1/2 translate-x-full';
-      case 'P3': // Dina - at the bottom of cards (between cards and table)
-        return 'absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full';
-      case 'P4': // Blake - on the left of cards (between cards and table)
-        return 'absolute top-1/2 left-0 -translate-y-1/2 -translate-x-full';
-      default:
-        return 'absolute right-5 top-1/2 -translate-y-1/2';
-    }
+    return 'absolute top-1/2 right-0 -translate-y-1/2 translate-x-full translate-x-[8px]';
   };
 
   return (
