@@ -263,6 +263,59 @@
   }
 }
 
+/* Safari-specific fixes for iPhone */
+@supports (-webkit-touch-callout: none) {
+  /* Fix viewport issues on Safari iOS */
+  .w-screen {
+    width: 100vw;
+  }
+  
+  .h-screen {
+    height: 100vh;
+  }
+  
+  /* Improve transform performance on Safari */
+  .transform {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  /* Fix calc() issues on Safari */
+  .-translate-x-\[calc\(50\%\+160px\)\] {
+    transform: translateX(calc(-50% - 160px));
+  }
+  
+  .translate-x-\[calc\(50\%\+150px\)\] {
+    transform: translateX(calc(50% + 150px));
+  }
+  
+  .-translate-x-\[calc\(100\%\+80px\)\] {
+    transform: translateX(calc(-100% - 80px));
+  }
+  
+  .translate-x-\[calc\(100\%\+90px\)\] {
+    transform: translateX(calc(100% + 90px));
+  }
+  
+  /* Additional Safari fixes for positioning */
+  body {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  /* Ensure proper overflow handling */
+  .overflow-hidden {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Fix for Safari's viewport height issues */
+  @media screen and (max-width: 640px) {
+    .h-screen {
+      height: -webkit-fill-available;
+    }
+  }
+}
+
 /* Prevent text selection on cards */
 .cursor-pointer {
   user-select: none;

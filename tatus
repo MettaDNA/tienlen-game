@@ -1,0 +1,3 @@
+[33mac67fa3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m REVERT: Remove responsive design changes and restore original GitHub version
+[33m9ef9681[m PERFORMANCE FIX: Optimize game speed - reduce bot delays, debug logging, and dialogue processing
+[33m5f57da1[m CRITICAL FIX: Socket.IO connection for Render deployment

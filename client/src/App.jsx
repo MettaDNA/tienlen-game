@@ -144,6 +144,11 @@ export default function App() {
   const passedPlayersRef = useRef(new Set());
   const currentTrickRef = useRef(1);
   const previousCenterPileRef = useRef([]);
+  const [showHelp, setShowHelp] = useState(false);
+  const [helpMessage, setHelpMessage] = useState("");
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   useEffect(() => {
     socket.emit("createGame");
@@ -197,6 +202,319 @@ export default function App() {
       if (data.centerPile && data.centerPile.length > 0) {
         console.log("Center pile data:", data.centerPile);
         console.log("Center pile length:", data.centerPile.length);
+      }
+      
+      // Generate help message for Player 1 only when it's their turn
+      if (data.phase === "Playing" && showHelpDialog && data.turn === 0) {
+        const player1 = data.players[0];
+        const isMyTurn = data.turn === 0;
+        const canPass = data.centerPile && data.centerPile.length > 0;
+        const has3Spades = player1.hand && player1.hand.some(card => card.value === 3 && card.suit === "♠");
+        const isFirstTrick = !data.centerPile || data.centerPile.length === 0;
+        
+        // Get information about the last played cards
+        let lastPlayInfo = "";
+        let currentTrick = null;
+        if (data.centerPile && data.centerPile.length > 0) {
+          const latestPlay = data.centerPile[data.centerPile.length - 1];
+          const lastPlayerName = playerNameMap[latestPlay.playerId] || latestPlay.playerId;
+          const lastCards = latestPlay.cards.map(card => `${card.value}${card.suit}`).join(", ");
+          lastPlayInfo = `${lastPlayerName} played: ${lastCards}`;
+          
+          // Determine the combo type of the current trick
+          const cardCount = latestPlay.cards.length;
+          if (cardCount === 1) {
+            currentTrick = { type: "single", cards: latestPlay.cards };
+          } else if (cardCount === 2 && latestPlay.cards[0].value === latestPlay.cards[1].value) {
+            currentTrick = { type: "pair", cards: latestPlay.cards };
+          } else if (cardCount === 3 && latestPlay.cards.every(c => c.value === latestPlay.cards[0].value)) {
+            currentTrick = { type: "triplet", cards: latestPlay.cards };
+          } else if (cardCount === 4 && latestPlay.cards.every(c => c.value === latestPlay.cards[0].value)) {
+            currentTrick = { type: "four", cards: latestPlay.cards };
+          }
+        }
+        
+        // Analyze Player 1's hand for valid moves to beat the current trick
+        let validMoves = "";
+        let rationale = "";
+        let suggestedCard = "";
+        
+        if (player1.hand && player1.hand.length > 0 && currentTrick) {
+          const hand = player1.hand;
+          const valueOrder = {3:0,4:1,5:2,6:3,7:4,8:5,9:6,10:7,J:8,Q:9,K:10,A:11,2:12};
+          const suitOrder = {"♠":0,"♣":1,"♦":2,"♥":3};
+          
+          // Find valid moves based on current trick type
+          const validOptions = [];
+          
+          if (currentTrick.type === "single") {
+            // Find singles that beat the current single
+            const currentHigh = currentTrick.cards[0];
+            hand.forEach(card => {
+              if (valueOrder[card.value] > valueOrder[currentHigh.value] || 
+                  (valueOrder[card.value] === valueOrder[currentHigh.value] && suitOrder[card.suit] > suitOrder[currentHigh.suit])) {
+                validOptions.push({ type: "single", cards: [card], value: card.value, suit: card.suit });
+              }
+            });
+            rationale = "You need to play a single card higher than the current play.";
+          } else if (currentTrick.type === "pair") {
+            // Find pairs that beat the current pair
+            const currentHigh = currentTrick.cards[0];
+            const valueCounts = {};
+            hand.forEach(card => {
+              valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            Object.entries(valueCounts).forEach(([value, count]) => {
+              if (count >= 2 && valueOrder[value] > valueOrder[currentHigh.value]) {
+                const pairCards = hand.filter(card => card.value === value).slice(0, 2);
+                validOptions.push({ type: "pair", cards: pairCards, value: value });
+              }
+            });
+            rationale = "You need to play a pair with higher value than the current pair.";
+          } else if (currentTrick.type === "triplet") {
+            // Find triplets that beat the current triplet
+            const currentHigh = currentTrick.cards[0];
+            const valueCounts = {};
+            hand.forEach(card => {
+              valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            Object.entries(valueCounts).forEach(([value, count]) => {
+              if (count >= 3 && valueOrder[value] > valueOrder[currentHigh.value]) {
+                const tripletCards = hand.filter(card => card.value === value).slice(0, 3);
+                validOptions.push({ type: "triplet", cards: tripletCards, value: value });
+              }
+            });
+            rationale = "You need to play a triplet with higher value than the current triplet.";
+          } else if (currentTrick.type === "four") {
+            // Find fours that beat the current four
+            const currentHigh = currentTrick.cards[0];
+            const valueCounts = {};
+            hand.forEach(card => {
+              valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            Object.entries(valueCounts).forEach(([value, count]) => {
+              if (count >= 4 && valueOrder[value] > valueOrder[currentHigh.value]) {
+                const fourCards = hand.filter(card => card.value === value).slice(0, 4);
+                validOptions.push({ type: "four", cards: fourCards, value: value });
+              }
+            });
+            rationale = "You need to play four cards with higher value than the current four.";
+          } else if (currentTrick.type === "straight") {
+            // Find straights that beat the current straight
+            const currentStraight = currentTrick.cards;
+            const currentHigh = currentStraight[currentStraight.length - 1]; // Highest card in straight
+            
+            // Check for straights of the same length
+            for (let start = 0; start <= hand.length - currentStraight.length; start++) {
+              for (let length = currentStraight.length; length <= Math.min(13, hand.length); length++) {
+                const potentialStraight = hand.slice(start, start + length);
+                if (potentialStraight.length >= currentStraight.length) {
+                  // Check if it's a valid straight
+                  let isValidStraight = true;
+                  const sortedPotential = potentialStraight.sort((a, b) => valueOrder[a.value] - valueOrder[b.value]);
+                  for (let i = 1; i < sortedPotential.length; i++) {
+                    if (valueOrder[sortedPotential[i].value] - valueOrder[sortedPotential[i-1].value] !== 1) {
+                      isValidStraight = false;
+                      break;
+                    }
+                  }
+                  if (isValidStraight && !sortedPotential.some(c => c.value === 2)) {
+                    const straightHigh = sortedPotential[sortedPotential.length - 1];
+                    if (valueOrder[straightHigh.value] > valueOrder[currentHigh.value]) {
+                      validOptions.push({ type: "straight", cards: sortedPotential, value: straightHigh.value });
+                    }
+                  }
+                }
+              }
+            }
+            rationale = "You need to play a straight with higher value than the current straight.";
+          } else if (currentTrick.type.includes("pairseq")) {
+            // Find pair sequences that beat the current pair sequence
+            const currentPairSeq = currentTrick.cards;
+            const currentHigh = currentPairSeq[currentPairSeq.length - 2]; // Highest pair in sequence
+            
+            // Check for pair sequences of the same length
+            const valueCounts = {};
+            hand.forEach(card => {
+              valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            
+            const pairCount = currentPairSeq.length / 2;
+            const requiredValues = [3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K", "A"];
+            
+            for (let start = 0; start <= requiredValues.length - pairCount; start++) {
+              const sequenceValues = requiredValues.slice(start, start + pairCount);
+              let hasAllPairs = true;
+              const pairSequence = [];
+              
+              for (const value of sequenceValues) {
+                const cardsOfValue = hand.filter(c => c.value === value);
+                if (cardsOfValue.length < 2) {
+                  hasAllPairs = false;
+                  break;
+                }
+                pairSequence.push(cardsOfValue[0], cardsOfValue[1]);
+              }
+              
+              if (hasAllPairs) {
+                const pairSeqHigh = pairSequence[pairSequence.length - 2];
+                if (valueOrder[pairSeqHigh.value] > valueOrder[currentHigh.value]) {
+                  validOptions.push({ type: "pairseq", cards: pairSequence, value: pairSeqHigh.value });
+                }
+              }
+            }
+            rationale = "You need to play a pair sequence with higher value than the current pair sequence.";
+          }
+          
+          // Sort valid options by value (lowest first for better suggestions)
+          validOptions.sort((a, b) => valueOrder[a.value] - valueOrder[b.value]);
+          
+          if (validOptions.length > 0) {
+            const bestOption = validOptions[0];
+            suggestedCard = bestOption.cards.map(card => `${card.value}${card.suit}`).join(", ");
+            validMoves = validOptions.map(option => 
+              option.cards.map(card => `${card.value}${card.suit}`).join(", ")
+            ).join("\n");
+          } else {
+            rationale = "You cannot beat the current play. Consider passing.";
+            validMoves = "None available";
+            suggestedCard = "Pass";
+          }
+        }
+        
+        let helpMsg = "";
+        
+        if (isFirstTrick && !has3Spades) {
+          helpMsg = "You must have 3♠ to start the game. Wait for another player to lead.";
+        } else if (isFirstTrick && has3Spades) {
+          // Find all valid combinations that include 3♠
+          const validCombinations = [];
+          const hand = player1.hand || [];
+          const threeSpades = hand.find(c => c.value === 3 && c.suit === "♠");
+          
+          if (threeSpades) {
+            // Single 3♠
+            validCombinations.push("3♠");
+            
+            // Find pairs with 3♠
+            const otherThrees = hand.filter(c => c.value === 3 && c.suit !== "♠");
+            if (otherThrees.length > 0) {
+              validCombinations.push(`3♠, ${otherThrees[0].value}${otherThrees[0].suit}`);
+            }
+            
+            // Find triplets with 3♠
+            if (otherThrees.length >= 2) {
+              validCombinations.push(`3♠, ${otherThrees[0].value}${otherThrees[0].suit}, ${otherThrees[1].value}${otherThrees[1].suit}`);
+            }
+            
+            // Find fours with 3♠
+            if (otherThrees.length >= 3) {
+              validCombinations.push(`3♠, ${otherThrees[0].value}${otherThrees[0].suit}, ${otherThrees[1].value}${otherThrees[1].suit}, ${otherThrees[2].value}${otherThrees[2].suit}`);
+            }
+            
+            // Find straights that include 3♠
+            const valueOrder = {3:0,4:1,5:2,6:3,7:4,8:5,9:6,10:7,J:8,Q:9,K:10,A:11,2:12};
+            
+            // Find all possible straights of length 3-13 that include 3♠
+            for (let length = 3; length <= Math.min(13, hand.length); length++) {
+              // Generate all possible combinations of 'length' cards from hand
+              const combinations = [];
+              const generateCombinations = (arr, size, start, current) => {
+                if (current.length === size) {
+                  combinations.push([...current]);
+                  return;
+                }
+                for (let i = start; i < arr.length; i++) {
+                  current.push(arr[i]);
+                  generateCombinations(arr, size, i + 1, current);
+                  current.pop();
+                }
+              };
+              
+              generateCombinations(hand, length, 0, []);
+              
+              // Check each combination for valid straights that include 3♠
+              for (const combo of combinations) {
+                if (combo.some(c => c.value === 3 && c.suit === "♠")) {
+                  // Sort by value
+                  const sortedCombo = combo.sort((a, b) => valueOrder[a.value] - valueOrder[b.value]);
+                  
+                  // Check if it's a valid straight (consecutive values, no 2's)
+                  let isValidStraight = true;
+                  for (let i = 1; i < sortedCombo.length; i++) {
+                    if (valueOrder[sortedCombo[i].value] - valueOrder[sortedCombo[i-1].value] !== 1) {
+                      isValidStraight = false;
+                      break;
+                    }
+                  }
+                  
+                  if (isValidStraight && !sortedCombo.some(c => c.value === 2)) {
+                    const straightStr = sortedCombo.map(c => `${c.value}${c.suit}`).join(", ");
+                    if (!validCombinations.includes(straightStr)) {
+                      validCombinations.push(straightStr);
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Find pair sequences starting with 3♠
+            const valueCounts = {};
+            hand.forEach(card => {
+              valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            
+            // Check for pair sequences of length 2, 3, 4, 5, 6 pairs
+            for (let pairCount = 2; pairCount <= 6; pairCount++) {
+              const requiredValues = [3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K", "A"];
+              const sequenceValues = requiredValues.slice(0, pairCount);
+              
+              // Check if we have pairs for all required values starting from 3
+              let hasAllPairs = true;
+              const pairSequence = [];
+              for (const value of sequenceValues) {
+                const cardsOfValue = hand.filter(c => c.value === value);
+                if (cardsOfValue.length < 2) {
+                  hasAllPairs = false;
+                  break;
+                }
+                // Take first two cards of this value
+                pairSequence.push(cardsOfValue[0], cardsOfValue[1]);
+              }
+              
+              if (hasAllPairs && pairSequence.some(c => c.value === 3 && c.suit === "♠")) {
+                const pairSeqStr = pairSequence.map(c => `${c.value}${c.suit}`).join(", ");
+                if (!validCombinations.includes(pairSeqStr)) {
+                  validCombinations.push(pairSeqStr);
+                }
+              }
+            }
+          }
+          
+          if (validCombinations.length > 0) {
+            helpMsg = `You must play 3♠ to start. Valid combinations:\n${validCombinations.slice(0, 5).join("\n")}${validCombinations.length > 5 ? "\n..." : ""}`;
+          } else {
+            helpMsg = "Select 3♠ to start the game.";
+          }
+        } else if (canPass) {
+          if (lastPlayInfo && validMoves && rationale && suggestedCard) {
+            const suggestion = suggestedCard === "Pass" ? "Pass" : `${suggestedCard} or Pass`;
+            helpMsg = `${lastPlayInfo}.\n${rationale}\n\nValid moves:\n${validMoves}.\nSuggested: ${suggestion}.\n\nNote: If you pass, you're out of this round until the next round restarts.`;
+          } else if (lastPlayInfo && validMoves && rationale) {
+            helpMsg = `${lastPlayInfo}.\n${rationale}\n\nValid moves:\n${validMoves}.\n\nNote: If you pass, you're out of this round until the next round restarts.`;
+          } else if (lastPlayInfo) {
+            helpMsg = `${lastPlayInfo}.\nSelect cards to beat the play or click Pass.\n\nNote: If you pass, you're out of this round until the next round restarts.`;
+          } else {
+            helpMsg = "Select cards to play or click Pass to skip your turn.\n\nNote: If you pass, you're out of this round until the next round restarts.";
+          }
+        } else {
+          helpMsg = "Select cards to play any valid combination.";
+        }
+        
+        setHelpMessage(helpMsg);
+      } else if (data.phase === "Playing" && showHelpDialog && data.turn !== 0) {
+        // Clear help message when it's not Player 1's turn
+        setHelpMessage("");
       }
       
       // Only process dialogue if we have debug logs and dialogues are enabled
@@ -374,7 +692,7 @@ export default function App() {
       <div className="relative w-full h-full max-w-6xl max-h-6xl flex items-center justify-center p-0">
         
         {/* Center Pile - Display played cards with improved visibility */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -translate-y-[35px] z-50">
                       <div className="text-center mb-0 bg-black bg-opacity-30 backdrop-blur-sm rounded-lg pt-0 pb-5 pl-5 pr-5">
             <div className="text-white text-xs sm:text-sm font-semibold mb-0">
               {game.phase === "Playing" && game.centerPile && game.centerPile.length > 0 ? 
@@ -515,6 +833,8 @@ export default function App() {
           gamePhase={game.phase}
           passedPlayers={passedPlayersRef.current}
           playAnimation={playAnimation}
+          showHelpDialog={showHelpDialog}
+          helpMessage={helpMessage}
         />
 
         <Player 
@@ -571,8 +891,17 @@ export default function App() {
 
       </div>
 
+      {/* Help Dialog - Fixed at bottom right of screen */}
+      {showHelpDialog && helpMessage && game.phase === "Playing" && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className="bg-gray-800 text-white text-xs sm:text-sm px-4 py-3 rounded-lg shadow-lg max-w-96 text-left border border-gray-600 whitespace-pre-line">
+            💡 {helpMessage}
+          </div>
+        </div>
+      )}
+
                      {/* Controls - Positioned at bottom of table, above player 1 cards */}
-               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[calc(50%+60px)] flex flex-row space-x-2 z-50">
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[calc(50%+65px)] translate-x-[-78px] flex flex-row space-x-2 z-50">
         {game.phase !== "RoundOver" && game.phase !== "GameOver" && showPlayer1Hand && (
           <>
             <button 
@@ -591,25 +920,32 @@ export default function App() {
             >
               Pass
             </button>
+            <button 
+              onClick={() => setShowHelpDialog(!showHelpDialog)}
+              className={`px-2 sm:px-3 py-1 rounded text-sm font-semibold ${showHelpDialog ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-600 hover:bg-gray-700'} text-white shadow-lg transition-all duration-200`}
+              title={showHelpDialog ? "Hide help hints" : "Show help hints"}
+            >
+              💡
+            </button>
           </>
         )}
       </div>
 
-      {/* Game Buttons - Responsive positioning */}
-      <div className="absolute top-4 sm:top-5 right-4 sm:right-5 flex flex-col space-y-2 z-50">
-        <button 
-          onClick={startNewGame}
-          className="px-3 sm:px-4 py-2 rounded bg-green-600 hover:bg-green-700 transition-all duration-300 text-white text-xs sm:text-sm font-semibold shadow-lg"
-          title="Start a new game with shuffled cards"
-        >
-          🃏 New Game
-        </button>
+      {/* Game Buttons - Centered positioning */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-row space-x-4 z-50">
         <button 
           onClick={() => setShowSettings(!showSettings)}
           className="px-3 sm:px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 transition-all duration-300 text-white text-xs sm:text-sm font-semibold shadow-lg"
           title="Game Settings"
         >
           ⚙️ Settings
+        </button>
+        <button 
+          onClick={startNewGame}
+          className="px-3 sm:px-4 py-2 rounded bg-green-600 hover:bg-green-700 transition-all duration-300 text-white text-xs sm:text-sm font-semibold shadow-lg"
+          title="Start a new game with shuffled cards"
+        >
+          🃏 New Game
         </button>
       </div>
 
@@ -699,6 +1035,8 @@ export default function App() {
                 <span className="text-xs text-gray-400">- Display bot dialogue</span>
               </label>
             </div>
+
+
 
             {/* Debug Panel Toggle */}
             <div className="mb-6">
@@ -800,7 +1138,9 @@ function Player({
   showPassThoughtBubble,
   gamePhase,
   passedPlayers,
-  playAnimation
+  playAnimation,
+  showHelpDialog,
+  helpMessage
 }) {
   const getPositionClasses = () => {
     switch (position) {
@@ -809,9 +1149,9 @@ function Player({
       case 'bottom':
         return 'absolute top-1/2 left-1/2 transform -translate-x-1/2 translate-y-[calc(50%+130px)] z-50';
       case 'left':
-        return 'absolute top-1/2 left-1/2 transform -translate-x-[calc(50%+180px)] -translate-y-1/2';
+        return 'absolute top-1/2 left-1/2 transform -translate-x-[calc(50%+170px)] -translate-y-1/2';
       case 'right':
-        return 'absolute top-1/2 left-1/2 transform translate-x-[calc(50%+170px)] -translate-y-1/2';
+        return 'absolute top-1/2 left-1/2 transform translate-x-[calc(50%+160px)] -translate-y-1/2';
       default:
         return '';
     }
@@ -862,8 +1202,10 @@ function Player({
   return (
     <div className={getPositionClasses()}>
       <div className="relative">
-                 {/* Cards Container - Reference for centering */}
-         <div className="flex justify-center mb-0">
+
+        
+        {/* Cards Container - Reference for centering */}
+        <div className="flex justify-center mb-0">
           {isClearing ? (
             (playerId === "P2" || playerId === "P4") ? 
             renderVerticalCards(
@@ -901,8 +1243,8 @@ function Player({
         
                                          {/* Name - Positioned under avatar based on player */}
                 <div className={`absolute z-20 ${
-                  playerId === "P2" ? "top-1/2 left-0 -translate-y-1/2 -translate-x-full -translate-x-[90px] translate-y-full translate-y-[27px]" : // Hazel: left of cards, below avatar, moved 90px left, moved 27px down
-                  playerId === "P4" ? "top-1/2 right-0 -translate-y-1/2 translate-x-full translate-y-full translate-x-[110px] translate-y-[27px]" : // Blake: right of cards, below avatar, moved 110px right, moved 27px down
+                  playerId === "P2" ? "top-1/2 left-0 -translate-y-1/2 -translate-x-full -translate-x-[115px] translate-y-full translate-y-[27px]" : // Hazel: left of cards, below avatar, moved 115px left, moved 27px down
+                  playerId === "P4" ? "top-1/2 right-0 -translate-y-1/2 translate-x-full translate-y-full translate-x-[90px] translate-y-[27px]" : // Blake: right of cards, below avatar, moved 90px right, moved 27px down
                    playerId === "P1" ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+114px)]" : // You: below avatar, moved down 40px
                        playerId === "P3" ? "top-0 left-1/2 -translate-x-1/2 -translate-y-[calc(100%+30px)]" : // Dina: above cards, moved up 30px (20px + 10px)
                   "top-0 left-1/2 -translate-x-1/2 -translate-y-full translate-y-[20px]" // Default: above cards, moved 20px down
@@ -915,9 +1257,9 @@ function Player({
         
                                                                   {/* Avatar - Positioned based on player */}
                  <div className={`absolute z-10 ${
-                   playerId === "P2" ? "top-1/2 left-0 -translate-y-1/2 -translate-x-full -translate-x-[105px] -translate-y-[60px]" : // Hazel: left of cards, center aligned with name, moved up 60px, moved 105px left
-                   playerId === "P4" ? "top-1/2 right-0 -translate-y-1/2 translate-x-full translate-x-[120px] -translate-y-[60px]" : // Blake: right of cards, center aligned with name, moved up 60px, moved 120px right
-                                                                                   playerId === "P1" ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+20px)]" : // You: below cards, moved down 20px
+                                                                           playerId === "P2" ? "top-1/2 left-0 -translate-y-1/2 -translate-x-[calc(100%+40px)] translate-y-[-73px]" : // Hazel: left of cards, moved 40px left, moved down 5px
+                  playerId === "P4" ? "top-1/2 right-0 -translate-y-1/2 translate-x-[calc(100%+20px)] translate-y-[-43px]" : // Blake: right of cards, moved 20px right, moved up 70px
+                                                                                   playerId === "P1" ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+10px)]" : // You: below cards, moved down 10px
                     playerId === "P3" ? "top-0 left-1/2 -translate-x-1/2 -translate-y-[calc(100%+50px)]" : // Dina: above name, moved up 50px (30px + 20px)
                    "top-0 left-1/2 -translate-x-1/2 -translate-y-[calc(100%+0rem)]" // Default: above name
                  }`}>
