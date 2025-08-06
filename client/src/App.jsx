@@ -577,16 +577,17 @@ export default function App() {
           <>
             <button 
               onClick={handlePlay} 
-              className={`px-4 sm:px-6 py-2 rounded text-sm sm:text-base font-semibold ${isFirstTrick && hasThreeSpades ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-blue-600 hover:bg-blue-700'} text-white shadow-lg transition-all duration-200`}
-              title={isFirstTrick && hasThreeSpades ? "You must play 3♠ to start the game" : "Play selected cards"}
+              disabled={!isMyTurn}
+              className={`px-4 sm:px-6 py-2 rounded text-sm sm:text-base font-semibold ${isMyTurn ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-400 cursor-not-allowed'} text-white shadow-lg transition-all duration-200`}
+              title={!isMyTurn ? "Not your turn" : (isFirstTrick && hasThreeSpades ? "You must play 3♠ to start the game" : "Play selected cards")}
             >
               {isFirstTrick && hasThreeSpades ? "Play 3♠" : "Play"}
             </button>
             <button 
               onClick={handlePass} 
-              disabled={!canPass}
-              className={`px-4 sm:px-6 py-2 rounded text-sm sm:text-base font-semibold ${canPass ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-400 cursor-not-allowed'} text-white shadow-lg transition-all duration-200`}
-              title={!canPass ? "You must play 3♠ to start the game" : "Pass your turn"}
+              disabled={!isMyTurn || !canPass}
+              className={`px-4 sm:px-6 py-2 rounded text-sm sm:text-base font-semibold ${isMyTurn && canPass ? 'bg-green-400 hover:bg-green-500' : 'bg-gray-400 cursor-not-allowed'} text-white shadow-lg transition-all duration-200`}
+              title={!isMyTurn ? "Not your turn" : (!canPass ? "You must play 3♠ to start the game" : "Pass your turn")}
             >
               Pass
             </button>
@@ -900,9 +901,9 @@ function Player({
         
                                          {/* Name - Positioned under avatar based on player */}
                 <div className={`absolute z-20 ${
-                  playerId === "P2" ? "top-1/2 left-0 -translate-y-1/2 -translate-x-full -translate-x-[90px] translate-y-full translate-y-[20px]" : // Hazel: left of cards, below avatar, moved 90px left, moved 20px down
-                  playerId === "P4" ? "top-1/2 right-0 -translate-y-1/2 translate-x-full translate-y-full translate-x-[110px] translate-y-[20px]" : // Blake: right of cards, below avatar, moved 110px right, moved 20px down
-                   playerId === "P1" ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-full translate-y-full translate-y-[120px]" : // You: below avatar, moved down 120px (80px + 20px + 20px)
+                  playerId === "P2" ? "top-1/2 left-0 -translate-y-1/2 -translate-x-full -translate-x-[90px] translate-y-full translate-y-[27px]" : // Hazel: left of cards, below avatar, moved 90px left, moved 27px down
+                  playerId === "P4" ? "top-1/2 right-0 -translate-y-1/2 translate-x-full translate-y-full translate-x-[110px] translate-y-[27px]" : // Blake: right of cards, below avatar, moved 110px right, moved 27px down
+                   playerId === "P1" ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+114px)]" : // You: below avatar, moved down 40px
                        playerId === "P3" ? "top-0 left-1/2 -translate-x-1/2 -translate-y-[calc(100%+30px)]" : // Dina: above cards, moved up 30px (20px + 10px)
                   "top-0 left-1/2 -translate-x-1/2 -translate-y-full translate-y-[20px]" // Default: above cards, moved 20px down
                 }`}>
@@ -916,7 +917,7 @@ function Player({
                  <div className={`absolute z-10 ${
                    playerId === "P2" ? "top-1/2 left-0 -translate-y-1/2 -translate-x-full -translate-x-[105px] -translate-y-[60px]" : // Hazel: left of cards, center aligned with name, moved up 60px, moved 105px left
                    playerId === "P4" ? "top-1/2 right-0 -translate-y-1/2 translate-x-full translate-x-[120px] -translate-y-[60px]" : // Blake: right of cards, center aligned with name, moved up 60px, moved 120px right
-                    playerId === "P1" ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-full" : // You: below cards
+                                                                                   playerId === "P1" ? "bottom-0 left-1/2 -translate-x-1/2 translate-y-[calc(100%+20px)]" : // You: below cards, moved down 20px
                     playerId === "P3" ? "top-0 left-1/2 -translate-x-1/2 -translate-y-[calc(100%+50px)]" : // Dina: above name, moved up 50px (30px + 20px)
                    "top-0 left-1/2 -translate-x-1/2 -translate-y-[calc(100%+0rem)]" // Default: above name
                  }`}>
