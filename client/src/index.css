@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  .sm\:h-20 {
+    height: 5rem;
+  }
+  
+  .sm\:w-20 {
+    width: 5rem;
+  }
+}
+
 @keyframes slideInFromPlayer {
   0% {
     transform: translateY(-100px) scale(0.8);
@@ -92,6 +103,67 @@
   }
 }
 
+/* Card play animations from each player to center */
+@keyframes playFromPlayer1 {
+  0% {
+    transform: translateY(140px) scale(0.8);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(70px) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes playFromPlayer2 {
+  0% {
+    transform: translateX(-160px) scale(0.8);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(-80px) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes playFromPlayer3 {
+  0% {
+    transform: translateY(-130px) scale(0.8);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-65px) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes playFromPlayer4 {
+  0% {
+    transform: translateX(120px) scale(0.8);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(60px) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
 .animate-slide-in {
   animation: slideInFromPlayer 0.6s ease-out;
 }
@@ -115,6 +187,47 @@
 .animate-fade-out {
   animation: fadeOut 0.8s ease-in forwards;
 }
+
+/* Card play animation classes */
+.animate-play-from-p1 {
+  animation: playFromPlayer1 0.8s ease-out;
+}
+
+.animate-play-from-p2 {
+  animation: playFromPlayer2 0.8s ease-out;
+}
+
+.animate-play-from-p3 {
+  animation: playFromPlayer3 0.8s ease-out;
+}
+
+.animate-play-from-p4 {
+  animation: playFromPlayer4 0.8s ease-out;
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3) translateY(-50px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05) translateY(-10px);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(0.9) translateY(-5px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.5s ease-out;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
@@ -125,4 +238,42 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #777;
   }
+
+/* Mobile touch improvements */
+@media (max-width: 640px) {
+  /* Ensure buttons are large enough for touch */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve card touch targets */
+  .cursor-pointer {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Better spacing for mobile */
+  .space-y-2 > * + * {
+    margin-top: 0.5rem;
+  }
+  
+  .space-x-4 > * + * {
+    margin-left: 1rem;
+  }
+}
+
+/* Prevent text selection on cards */
+.cursor-pointer {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Improve backdrop blur performance */
+.backdrop-blur-sm {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
   

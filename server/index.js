@@ -513,4 +513,4 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(process.env.PORT || 3001, () => console.log(`Server running on port ${process.env.PORT || 3001}`));
+server.listen(process.env.PORT || 3000, () => console.log(`Server running on port ${process.env.PORT || 3000}`));
