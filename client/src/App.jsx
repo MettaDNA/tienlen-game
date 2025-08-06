@@ -148,7 +148,7 @@ export default function App() {
   const [helpMessage, setHelpMessage] = useState("");
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
-  const [showHelpDialog, setShowHelpDialog] = useState(false);
+  const [showHelpDialog, setShowHelpDialog] = useState(true);
 
   useEffect(() => {
     socket.emit("createGame");
@@ -239,7 +239,7 @@ export default function App() {
         let rationale = "";
         let suggestedCard = "";
         
-        if (player1.hand && player1.hand.length > 0 && currentTrick) {
+        if (player1.hand && player1.hand.length > 0) {
           const hand = player1.hand;
           const valueOrder = {3:0,4:1,5:2,6:3,7:4,8:5,9:6,10:7,J:8,Q:9,K:10,A:11,2:12};
           const suitOrder = {"♠":0,"♣":1,"♦":2,"♥":3};
@@ -364,6 +364,105 @@ export default function App() {
               }
             }
             rationale = "You need to play a pair sequence with higher value than the current pair sequence.";
+          } else if (!currentTrick) {
+            // Bombing scenario - no current trick, can play any valid combo
+            // Find all possible valid combinations
+            const valueCounts = {};
+            hand.forEach(card => {
+              valueCounts[card.value] = (valueCounts[card.value] || 0) + 1;
+            });
+            
+            // Singles
+            hand.forEach(card => {
+              validOptions.push({ type: "single", cards: [card], value: card.value, suit: card.suit });
+            });
+            
+            // Pairs
+            Object.entries(valueCounts).forEach(([value, count]) => {
+              if (count >= 2) {
+                const pairCards = hand.filter(card => card.value === value).slice(0, 2);
+                validOptions.push({ type: "pair", cards: pairCards, value: value });
+              }
+            });
+            
+            // Triplets
+            Object.entries(valueCounts).forEach(([value, count]) => {
+              if (count >= 3) {
+                const tripletCards = hand.filter(card => card.value === value).slice(0, 3);
+                validOptions.push({ type: "triplet", cards: tripletCards, value: value });
+              }
+            });
+            
+            // Fours (bombs)
+            Object.entries(valueCounts).forEach(([value, count]) => {
+              if (count >= 4) {
+                const fourCards = hand.filter(card => card.value === value).slice(0, 4);
+                validOptions.push({ type: "four", cards: fourCards, value: value });
+              }
+            });
+            
+            // Straights (bombs if 5+ cards)
+            for (let length = 3; length <= Math.min(13, hand.length); length++) {
+              // Generate all possible combinations of 'length' cards from hand
+              const combinations = [];
+              const generateCombinations = (arr, size, start, current) => {
+                if (current.length === size) {
+                  combinations.push([...current]);
+                  return;
+                }
+                for (let i = start; i < arr.length; i++) {
+                  current.push(arr[i]);
+                  generateCombinations(arr, size, i + 1, current);
+                  current.pop();
+                }
+              };
+              
+              generateCombinations(hand, length, 0, []);
+              
+              // Check each combination for valid straights
+              for (const combo of combinations) {
+                const sortedCombo = combo.sort((a, b) => valueOrder[a.value] - valueOrder[b.value]);
+                
+                // Check if it's a valid straight (consecutive values, no 2's)
+                let isValidStraight = true;
+                for (let i = 1; i < sortedCombo.length; i++) {
+                  if (valueOrder[sortedCombo[i].value] - valueOrder[sortedCombo[i-1].value] !== 1) {
+                    isValidStraight = false;
+                    break;
+                  }
+                }
+                
+                if (isValidStraight && !sortedCombo.some(c => c.value === 2)) {
+                  validOptions.push({ type: "straight", cards: sortedCombo, value: sortedCombo[sortedCombo.length - 1].value });
+                }
+              }
+            }
+            
+            // Pair sequences (bombs)
+            for (let pairCount = 2; pairCount <= 6; pairCount++) {
+              const requiredValues = [3, 4, 5, 6, 7, 8, 9, 10, "J", "Q", "K", "A"];
+              
+              for (let start = 0; start <= requiredValues.length - pairCount; start++) {
+                const sequenceValues = requiredValues.slice(start, start + pairCount);
+                let hasAllPairs = true;
+                const pairSequence = [];
+                
+                for (const value of sequenceValues) {
+                  const cardsOfValue = hand.filter(c => c.value === value);
+                  if (cardsOfValue.length < 2) {
+                    hasAllPairs = false;
+                    break;
+                  }
+                  pairSequence.push(cardsOfValue[0], cardsOfValue[1]);
+                }
+                
+                if (hasAllPairs) {
+                  validOptions.push({ type: "pairseq", cards: pairSequence, value: pairSequence[pairSequence.length - 2].value });
+                }
+              }
+            }
+            
+            rationale = "You can play any valid combination (bombing).";
           }
           
           // Sort valid options by value (lowest first for better suggestions)
@@ -902,7 +1001,7 @@ export default function App() {
 
                      {/* Controls - Positioned at bottom of table, above player 1 cards */}
                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[calc(50%+65px)] translate-x-[-78px] flex flex-row space-x-2 z-50">
-        {game.phase !== "RoundOver" && game.phase !== "GameOver" && showPlayer1Hand && (
+        {game.phase !== "RoundOver" && game.phase !== "GameOver" && game.phase === "Playing" && (
           <>
             <button 
               onClick={handlePlay} 
